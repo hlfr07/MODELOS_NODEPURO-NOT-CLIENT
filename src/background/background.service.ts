@@ -21,8 +21,8 @@ export class BackgroundService {
         console.log("Ruta de modelos:", ruta);
         console.log("Archivos en assets:", fs.readdirSync(ruta));
         try {
-            this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
-            console.log("MODELO U2NET CARGADO");
+            // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
+            // console.log("MODELO U2NET CARGADO");
 
             this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'));
             console.log("MODELO BRIA CARGADO");
@@ -30,8 +30,8 @@ export class BackgroundService {
             // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
             // console.log("MODELO MODEL20 CARGADO");
 
-            this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
-            console.log("MODELO GANv2 CARGADO");
+            // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
+            // console.log("MODELO GANv2 CARGADO");
         } catch (err) {
             console.error("ERROR AL CARGAR MODELO:", err);
         }

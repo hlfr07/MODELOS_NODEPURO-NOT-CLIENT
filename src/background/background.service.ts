@@ -42,8 +42,7 @@ export class BackgroundService {
         console.log("Ruta de modelos:", ruta);
 
         try {
-            // --- CARGAR BRIA POR CHUNKS CON STREAM ---
-            const chunkDir = ruta; // carpeta donde guardaste los chunks
+            const chunkDir = ruta;
             const chunkFiles = fs.readdirSync(chunkDir)
                 .sort((a, b) => {
                     const na = Number(a.match(/\d+/)?.[0]);
@@ -53,10 +52,11 @@ export class BackgroundService {
 
             console.log('🔹 Archivos encontrados:', chunkFiles);
 
-            // Archivo temporal donde vamos a unir los chunks
+            // Creamos un archivo temporal para unir los chunks
             const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
             const writeStream = fs.createWriteStream(tmpPath);
 
+            // Escribimos los chunks uno por uno en el stream
             for (const chunk of chunkFiles) {
                 const chunkPath = path.join(chunkDir, chunk);
                 await new Promise<void>((resolve, reject) => {
@@ -67,20 +67,24 @@ export class BackgroundService {
                 });
             }
 
-            writeStream.end(); // cerrar el stream
+            // Esperamos que el stream termine de escribir todo
+            await new Promise<void>((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+                writeStream.end();
+            });
 
-            // Cargar modelo ONNX desde el archivo temporal
+            // Ahora cargamos el modelo desde el archivo temporal
             this.sessionBRIA = await ort.InferenceSession.create(tmpPath);
             console.log("MODELO BRIA CARGADO POR CHUNKS CON STREAMING ✅");
 
-            // (Opcional) eliminar archivo temporal
+            // Opcional: eliminar el archivo temporal si no lo necesitas
             // fs.unlinkSync(tmpPath);
 
         } catch (err) {
             console.error("ERROR AL CARGAR MODELO:", err);
         }
     }
-
 
 
     private async ensureSession() {

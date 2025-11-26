@@ -82,9 +82,9 @@ export class BackgroundService {
             });
 
             // Cargar modelo desde el archivo temporal (solo lee disco)
-            this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
-                executionProviders: ['wasm']
-            });
+            // this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
+            //     executionProviders: ['wasm']
+            // });
             console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
 
             // Opcional: eliminar temporal

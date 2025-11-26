@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Jimp from 'jimp';
-import * as ort from 'onnxruntime-web';
+import * as ort from 'onnxruntime-node';
 import * as path from 'path';
 import * as fs from 'fs';
 @Injectable()
@@ -53,35 +53,38 @@ export class BackgroundService {
 
             console.log('🔹 Archivos encontrados:', chunkFiles);
 
-            // Creamos un archivo temporal para unir los chunks
+            // Archivo temporal donde se irá concatenando todo
             const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
             const writeStream = fs.createWriteStream(tmpPath);
 
-            // Escribimos los chunks uno por uno en el stream
-            for (const chunk of chunkFiles) {
-                const chunkPath = path.join(chunkDir, chunk);
-                await new Promise<void>((resolve, reject) => {
+            // Función para escribir un chunk en disco
+            const writeChunk = (chunkPath: string) => {
+                return new Promise<void>((resolve, reject) => {
                     const readStream = fs.createReadStream(chunkPath);
                     readStream.pipe(writeStream, { end: false });
                     readStream.on('end', resolve);
                     readStream.on('error', reject);
                 });
+            };
+
+            // Escribimos todos los chunks uno por uno
+            for (const chunk of chunkFiles) {
+                const chunkPath = path.join(chunkDir, chunk);
+                await writeChunk(chunkPath);
             }
 
-            // Esperamos que el stream termine de escribir todo
+            // Cerramos el stream al final
             await new Promise<void>((resolve, reject) => {
+                writeStream.end();
                 writeStream.on('finish', resolve);
                 writeStream.on('error', reject);
-                writeStream.end();
             });
 
-            // Ahora cargamos el modelo desde el archivo temporal
-            this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
-                executionProviders: ['wasm']
-            });
-            console.log("MODELO BRIA CARGADO POR CHUNKS CON STREAMING ✅");
+            // Cargar modelo desde el archivo temporal (solo lee disco)
+            this.sessionBRIA = await ort.InferenceSession.create(tmpPath);
+            console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
 
-            // Opcional: eliminar el archivo temporal si no lo necesitas
+            // Opcional: eliminar temporal
             // fs.unlinkSync(tmpPath);
 
         } catch (err) {

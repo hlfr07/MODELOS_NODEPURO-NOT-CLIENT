@@ -21,7 +21,7 @@ function listDirShallow(dir: string) {
     });
 
   } catch (e) {
-    console.log(`   ❌ No existe o no se puede leer.`);
+    console.log(`   ❌ No existe o no se puede leer: ${dir}`);
   }
 }
 
@@ -29,27 +29,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: true, credentials: true });
 
-  const distPath = path.join(__dirname, '..');
+  // Ruta pública (mantener si la usas)
   const publicPath = path.join(__dirname, '..', 'public');
-  const assetsPath = path.join(__dirname, '..', 'assets');
-
   app.use(express.static(publicPath));
 
   console.log("\n================ RUTAS IMPORTANTES ================");
-  console.log("process.cwd(): ", process.cwd());
-  console.log("__dirname:     ", __dirname);
-  console.log("publicPath:    ", publicPath);
-  console.log("assetsPath:    ", assetsPath);
+  console.log("process.cwd(): ", process.cwd()); // raíz del runtime (/workspace)
+  console.log("__dirname:     ", __dirname);     // carpeta donde está main.js
   console.log("===================================================\n");
 
-  // 🔥 LISTADOS (SOLO NIVEL ACTUAL)
+  // 🔥 LISTADO SOLO DEL MISMO NIVEL QUE main.js (__dirname)
   console.log("---------------------------------------------------");
-  listDirShallow(process.cwd());  // raíz del runtime
+  listDirShallow(__dirname);   // <-- lista *solo* lo que hay junto a main.js
   console.log("---------------------------------------------------");
-  listDirShallow(distPath);       // dist/
-  console.log("---------------------------------------------------");
-  listDirShallow(assetsPath);     // dist/assets/
-  console.log("---------------------------------------------------");
+
+  // (Opcional) también puedes listar process.cwd() o distPath si quieres:
+  // listDirShallow(process.cwd());
+  // listDirShallow(path.join(__dirname, '..'));
 
   await app.listen(process.env.PORT ?? 3000);
   console.log("API on http://localhost:3000");

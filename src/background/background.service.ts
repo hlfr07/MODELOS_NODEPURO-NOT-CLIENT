@@ -17,7 +17,7 @@ export class BackgroundService {
     }
 
     private async loadModel() {
-        const ruta = path.join(process.cwd(), 'assets/');
+        const ruta = path.join(__dirname, 'assets/');
         console.log("Ruta de modelos:", ruta);
         console.log("Archivos en assets:", fs.readdirSync(ruta));
         try {

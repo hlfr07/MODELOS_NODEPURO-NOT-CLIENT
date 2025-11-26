@@ -14,7 +14,7 @@ export class BackgroundService {
 
     constructor() {
         // Lanzamos la carga del modelo al inicio
-        // this.loading = this.loadModel();
+        this.loading = this.loadModel();
     }
 
     // private async loadModel() {
@@ -39,62 +39,45 @@ export class BackgroundService {
     //     }
     // }
 
-    // private async loadModel() {
-    //     const ruta = path.join(__dirname, '..', 'assets');
-    //     console.log("Ruta de modelos:", ruta);
+    private async loadModel() {
+        try {
+            const chunkDir = path.join(__dirname, '..', 'assets');
 
-    //     try {
-    //         const chunkDir = ruta;
-    //         const chunkFiles = fs.readdirSync(chunkDir)
-    //             .sort((a, b) => {
-    //                 const na = Number(a.match(/\d+/)?.[0]);
-    //                 const nb = Number(b.match(/\d+/)?.[0]);
-    //                 return na - nb;
-    //             });
+            // Leer nombres de los chunks
+            let chunkFiles = fs.readdirSync(chunkDir).filter(f => f.endsWith(".bin"));
 
-    //         console.log('🔹 Archivos encontrados:', chunkFiles);
+            chunkFiles = chunkFiles.sort((a, b) => {
+                const na = Number(a.match(/\d+/)?.[0]);
+                const nb = Number(b.match(/\d+/)?.[0]);
+                return na - nb;
+            });
 
-    //         // Archivo temporal donde se irá concatenando todo
-    //         const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
-    //         const writeStream = fs.createWriteStream(tmpPath);
+            console.log("🔹 Chunks encontrados:", chunkFiles);
 
-    //         // Función para escribir un chunk en disco
-    //         const writeChunk = (chunkPath: string) => {
-    //             return new Promise<void>((resolve, reject) => {
-    //                 const readStream = fs.createReadStream(chunkPath);
-    //                 readStream.pipe(writeStream, { end: false });
-    //                 readStream.on('end', resolve);
-    //                 readStream.on('error', reject);
-    //             });
-    //         };
+            // Leer cada chunk a memoria
+            const buffers: Buffer[] = [];
 
-    //         // Escribimos todos los chunks uno por uno
-    //         for (const chunk of chunkFiles) {
-    //             const chunkPath = path.join(chunkDir, chunk);
-    //             await writeChunk(chunkPath);
-    //         }
+            for (const file of chunkFiles) {
+                const filePath = path.join(chunkDir, file);
+                const data = fs.readFileSync(filePath);   // ▶️ SOLO LECTURA (permitido en Vercel)
+                buffers.push(data);
+            }
 
-    //         // Cerramos el stream al final
-    //         await new Promise<void>((resolve, reject) => {
-    //             writeStream.end();
-    //             writeStream.on('finish', resolve);
-    //             writeStream.on('error', reject);
-    //         });
+            // Unir todo en un solo Buffer
+            const unified = Buffer.concat(buffers);
+            console.log("🔸 Buffer total:", unified.length, "bytes");
 
-    //         // Cargar modelo desde el archivo temporal (solo lee disco)
-    //         // this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
-    //         //     executionProviders: ['wasm']
-    //         // });
-    //         console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
+            // Crear sesión ONNX desde memoria
+            this.sessionBRIA = await ort.InferenceSession.create(unified, {
+                executionProviders: ["wasm"]
+            });
 
-    //         // Opcional: eliminar temporal
-    //         // fs.unlinkSync(tmpPath);
+            console.log("⚡ MODELO BRIA CARGADO DESDE MEMORIA (Vercel-Friendly)");
 
-    //     } catch (err) {
-    //         console.error("ERROR AL CARGAR MODELO:", err);
-    //     }
-    // }
-
+        } catch (err) {
+            console.error("❌ ERROR AL CARGAR MODELO:", err);
+        }
+    }
 
     private async ensureSession() {
         // Espera a que termine de cargar el modelo si todavía está cargando

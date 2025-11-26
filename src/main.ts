@@ -7,15 +7,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Ruta al modelo en dist/assets
-  const modelPath = path.join(__dirname, 'assets', 'bria.onnx');
+  // const modelPath = path.join(__dirname, 'assets', 'bria.onnx');
 
-  try {
-    const stats = fs.statSync(modelPath);
-    console.log(`Archivo encontrado: ${modelPath}`);
-    console.log(`Tamaño: ${stats.size} bytes`);
-  } catch (err) {
-    console.error(`❌ No se pudo leer el archivo: ${modelPath}`);
-  }
+  // try {
+  //   const stats = fs.statSync(modelPath);
+  //   console.log(`Archivo encontrado: ${modelPath}`);
+  //   console.log(`Tamaño: ${stats.size} bytes`);
+  // } catch (err) {
+  //   console.error(`❌ No se pudo leer el archivo: ${modelPath}`);
+  // }
 
   await app.listen(process.env.PORT ?? 3000);
   console.log("API on http://localhost:3000");

@@ -16,26 +16,59 @@ export class BackgroundService {
         this.loading = this.loadModel();
     }
 
+    // private async loadModel() {
+    //     const ruta = path.join(__dirname, '..', 'assets');
+    //     console.log("Ruta de modelos:", ruta);
+    //     console.log("Archivos en assets:", fs.readdirSync(ruta));
+    //     try {
+    //         // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
+    //         // console.log("MODELO U2NET CARGADO");
+
+    //         this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'));
+    //         console.log("MODELO BRIA CARGADO");
+
+    //         // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
+    //         // console.log("MODELO MODEL20 CARGADO");
+
+    //         // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
+    //         // console.log("MODELO GANv2 CARGADO");
+    //     } catch (err) {
+    //         console.error("ERROR AL CARGAR MODELO:", err);
+    //     }
+    // }
+
     private async loadModel() {
         const ruta = path.join(__dirname, '..', 'assets');
         console.log("Ruta de modelos:", ruta);
-        console.log("Archivos en assets:", fs.readdirSync(ruta));
+
         try {
-            // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
-            // console.log("MODELO U2NET CARGADO");
+            // --- CARGAR BRIA POR CHUNKS ---
+            const chunkDir = path.join(ruta); // carpeta donde guardaste los chunks
+            const chunkFiles = fs.readdirSync(chunkDir)
+                .sort((a, b) => {
+                    const na = Number(a.match(/\d+/)?.[0]);
+                    const nb = Number(b.match(/\d+/)?.[0]);
+                    return na - nb;
+                });
 
-            this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'));
-            console.log("MODELO BRIA CARGADO");
+            console.log('🔹 Archivos encontrados:', chunkFiles);
 
-            // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
-            // console.log("MODELO MODEL20 CARGADO");
+            const chunks: Buffer[] = chunkFiles.map(f => {
+                console.log('🔹 Leyendo chunk:', f);
+                return fs.readFileSync(path.join(chunkDir, f));
+            });
 
-            // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
-            // console.log("MODELO GANv2 CARGADO");
+            const modelBuffer = Buffer.concat(chunks);
+            console.log('✔ Modelo concatenado, tamaño:', modelBuffer.length);
+
+            this.sessionBRIA = await ort.InferenceSession.create(modelBuffer);
+            console.log("MODELO BRIA CARGADO POR CHUNKS");
+
         } catch (err) {
             console.error("ERROR AL CARGAR MODELO:", err);
         }
     }
+
 
     private async ensureSession() {
         // Espera a que termine de cargar el modelo si todavía está cargando

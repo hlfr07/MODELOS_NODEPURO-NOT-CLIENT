@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import Jimp from 'jimp';
-import * as ort from 'onnxruntime-node';
+// import * as ort from 'onnxruntime-node';
+import * as ort from 'onnxruntime-web';
 import * as path from 'path';
 import * as fs from 'fs';
 @Injectable()
@@ -81,7 +82,9 @@ export class BackgroundService {
             });
 
             // Cargar modelo desde el archivo temporal (solo lee disco)
-            // this.sessionBRIA = await ort.InferenceSession.create(tmpPath);
+            this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
+                executionProviders: ['wasm']
+            });
             console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
 
             // Opcional: eliminar temporal

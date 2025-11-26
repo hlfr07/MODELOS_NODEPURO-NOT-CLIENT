@@ -5,7 +5,7 @@
 // import * as path from 'path';
 // import * as fs from 'fs';
 // @Injectable()
-// export class BackgroundService {
+export class BackgroundService {
 //     private session: ort.InferenceSession | null = null;
 //     private sessionBRIA: ort.InferenceSession | null = null;
 //     private sessionMODEL20: ort.InferenceSession | null = null;
@@ -286,4 +286,4 @@
 //     }
 
 
-// }
+}

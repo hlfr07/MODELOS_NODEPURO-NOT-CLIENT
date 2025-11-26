@@ -16,27 +16,79 @@ export class BackgroundService {
         this.loading = this.loadModel();
     }
 
+    // private async loadModel() {
+    //     const ruta = path.join(__dirname, '..', '..', 'src', 'assets');
+    //     console.log("Ruta de modelos:", ruta);
+    //     console.log("Archivos en assets:", fs.readdirSync(ruta));
+    //     try {
+    //         // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
+    //         // console.log("MODELO U2NET CARGADO");
+
+    //         this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'),
+    //             { executionProviders: ['wasm'] });
+    //         console.log("MODELO BRIA CARGADO");
+
+    //         // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
+    //         // console.log("MODELO MODEL20 CARGADO");
+
+    //         // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
+    //         // console.log("MODELO GANv2 CARGADO");
+    //     } catch (err) {
+    //         console.error("ERROR AL CARGAR MODELO:", err);
+    //     }
+    // }
+
     private async loadModel() {
-        const ruta = path.join(__dirname, '..', '..', 'src', 'assets');
+        const ruta = path.join(__dirname, '..', 'assets');
         console.log("Ruta de modelos:", ruta);
-        console.log("Archivos en assets:", fs.readdirSync(ruta));
+
         try {
-            // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
-            // console.log("MODELO U2NET CARGADO");
+            const chunkDir = ruta;
+            const chunkFiles = fs.readdirSync(chunkDir)
+                .sort((a, b) => {
+                    const na = Number(a.match(/\d+/)?.[0]);
+                    const nb = Number(b.match(/\d+/)?.[0]);
+                    return na - nb;
+                });
 
-            this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'),
-                { executionProviders: ['wasm'] });
-            console.log("MODELO BRIA CARGADO");
+            console.log('🔹 Archivos encontrados:', chunkFiles);
 
-            // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
-            // console.log("MODELO MODEL20 CARGADO");
+            // Creamos un archivo temporal para unir los chunks
+            const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
+            const writeStream = fs.createWriteStream(tmpPath);
 
-            // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
-            // console.log("MODELO GANv2 CARGADO");
+            // Escribimos los chunks uno por uno en el stream
+            for (const chunk of chunkFiles) {
+                const chunkPath = path.join(chunkDir, chunk);
+                await new Promise<void>((resolve, reject) => {
+                    const readStream = fs.createReadStream(chunkPath);
+                    readStream.pipe(writeStream, { end: false });
+                    readStream.on('end', resolve);
+                    readStream.on('error', reject);
+                });
+            }
+
+            // Esperamos que el stream termine de escribir todo
+            await new Promise<void>((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+                writeStream.end();
+            });
+
+            // Ahora cargamos el modelo desde el archivo temporal
+            this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
+                executionProviders: ['wasm']
+            });
+            console.log("MODELO BRIA CARGADO POR CHUNKS CON STREAMING ✅");
+
+            // Opcional: eliminar el archivo temporal si no lo necesitas
+            // fs.unlinkSync(tmpPath);
+
         } catch (err) {
             console.error("ERROR AL CARGAR MODELO:", err);
         }
     }
+
 
     private async ensureSession() {
         // Espera a que termine de cargar el modelo si todavía está cargando

@@ -1,289 +1,289 @@
-// import { Injectable } from '@nestjs/common';
-// import Jimp from 'jimp';
-// // import * as ort from 'onnxruntime-node';
-// import * as ort from 'onnxruntime-web';
-// import * as path from 'path';
-// import * as fs from 'fs';
-// @Injectable()
+import { Injectable } from '@nestjs/common';
+import Jimp from 'jimp';
+// import * as ort from 'onnxruntime-node';
+import * as ort from 'onnxruntime-web';
+import * as path from 'path';
+import * as fs from 'fs';
+@Injectable()
 export class BackgroundService {
-//     private session: ort.InferenceSession | null = null;
-//     private sessionBRIA: ort.InferenceSession | null = null;
-//     private sessionMODEL20: ort.InferenceSession | null = null;
-//     private sessionGANv2: ort.InferenceSession | null = null;
-//     private loading: Promise<void>; // para esperar la carga inicial
+    private session: ort.InferenceSession | null = null;
+    private sessionBRIA: ort.InferenceSession | null = null;
+    private sessionMODEL20: ort.InferenceSession | null = null;
+    private sessionGANv2: ort.InferenceSession | null = null;
+    private loading: Promise<void>; // para esperar la carga inicial
 
-//     constructor() {
-//         // Lanzamos la carga del modelo al inicio
-//         this.loading = this.loadModel();
-//     }
+    constructor() {
+        // Lanzamos la carga del modelo al inicio
+        // this.loading = this.loadModel();
+    }
 
-//     // private async loadModel() {
-//     //     const ruta = path.join(__dirname, '..', '..', 'src', 'assets');
-//     //     console.log("Ruta de modelos:", ruta);
-//     //     console.log("Archivos en assets:", fs.readdirSync(ruta));
-//     //     try {
-//     //         // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
-//     //         // console.log("MODELO U2NET CARGADO");
+    // private async loadModel() {
+    //     const ruta = path.join(__dirname, '..', '..', 'src', 'assets');
+    //     console.log("Ruta de modelos:", ruta);
+    //     console.log("Archivos en assets:", fs.readdirSync(ruta));
+    //     try {
+    //         // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
+    //         // console.log("MODELO U2NET CARGADO");
 
-//     //         this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'),
-//     //             { executionProviders: ['wasm'] });
-//     //         console.log("MODELO BRIA CARGADO");
+    //         this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'),
+    //             { executionProviders: ['wasm'] });
+    //         console.log("MODELO BRIA CARGADO");
 
-//     //         // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
-//     //         // console.log("MODELO MODEL20 CARGADO");
+    //         // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));
+    //         // console.log("MODELO MODEL20 CARGADO");
 
-//     //         // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
-//     //         // console.log("MODELO GANv2 CARGADO");
-//     //     } catch (err) {
-//     //         console.error("ERROR AL CARGAR MODELO:", err);
-//     //     }
-//     // }
+    //         // this.sessionGANv2 = await ort.InferenceSession.create(path.join(ruta, 'face_paint_512_v2_0.onnx'));
+    //         // console.log("MODELO GANv2 CARGADO");
+    //     } catch (err) {
+    //         console.error("ERROR AL CARGAR MODELO:", err);
+    //     }
+    // }
 
-//     private async loadModel() {
-//         const ruta = path.join(__dirname, '..', 'assets');
-//         console.log("Ruta de modelos:", ruta);
+    // private async loadModel() {
+    //     const ruta = path.join(__dirname, '..', 'assets');
+    //     console.log("Ruta de modelos:", ruta);
 
-//         try {
-//             const chunkDir = ruta;
-//             const chunkFiles = fs.readdirSync(chunkDir)
-//                 .sort((a, b) => {
-//                     const na = Number(a.match(/\d+/)?.[0]);
-//                     const nb = Number(b.match(/\d+/)?.[0]);
-//                     return na - nb;
-//                 });
+    //     try {
+    //         const chunkDir = ruta;
+    //         const chunkFiles = fs.readdirSync(chunkDir)
+    //             .sort((a, b) => {
+    //                 const na = Number(a.match(/\d+/)?.[0]);
+    //                 const nb = Number(b.match(/\d+/)?.[0]);
+    //                 return na - nb;
+    //             });
 
-//             console.log('🔹 Archivos encontrados:', chunkFiles);
+    //         console.log('🔹 Archivos encontrados:', chunkFiles);
 
-//             // Archivo temporal donde se irá concatenando todo
-//             const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
-//             const writeStream = fs.createWriteStream(tmpPath);
+    //         // Archivo temporal donde se irá concatenando todo
+    //         const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
+    //         const writeStream = fs.createWriteStream(tmpPath);
 
-//             // Función para escribir un chunk en disco
-//             const writeChunk = (chunkPath: string) => {
-//                 return new Promise<void>((resolve, reject) => {
-//                     const readStream = fs.createReadStream(chunkPath);
-//                     readStream.pipe(writeStream, { end: false });
-//                     readStream.on('end', resolve);
-//                     readStream.on('error', reject);
-//                 });
-//             };
+    //         // Función para escribir un chunk en disco
+    //         const writeChunk = (chunkPath: string) => {
+    //             return new Promise<void>((resolve, reject) => {
+    //                 const readStream = fs.createReadStream(chunkPath);
+    //                 readStream.pipe(writeStream, { end: false });
+    //                 readStream.on('end', resolve);
+    //                 readStream.on('error', reject);
+    //             });
+    //         };
 
-//             // Escribimos todos los chunks uno por uno
-//             for (const chunk of chunkFiles) {
-//                 const chunkPath = path.join(chunkDir, chunk);
-//                 await writeChunk(chunkPath);
-//             }
+    //         // Escribimos todos los chunks uno por uno
+    //         for (const chunk of chunkFiles) {
+    //             const chunkPath = path.join(chunkDir, chunk);
+    //             await writeChunk(chunkPath);
+    //         }
 
-//             // Cerramos el stream al final
-//             await new Promise<void>((resolve, reject) => {
-//                 writeStream.end();
-//                 writeStream.on('finish', resolve);
-//                 writeStream.on('error', reject);
-//             });
+    //         // Cerramos el stream al final
+    //         await new Promise<void>((resolve, reject) => {
+    //             writeStream.end();
+    //             writeStream.on('finish', resolve);
+    //             writeStream.on('error', reject);
+    //         });
 
-//             // Cargar modelo desde el archivo temporal (solo lee disco)
-//             // this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
-//             //     executionProviders: ['wasm']
-//             // });
-//             console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
+    //         // Cargar modelo desde el archivo temporal (solo lee disco)
+    //         // this.sessionBRIA = await ort.InferenceSession.create(tmpPath, {
+    //         //     executionProviders: ['wasm']
+    //         // });
+    //         console.log("MODELO BRIA CARGADO POR CHUNKS SIN USAR MEMORIA ✅");
 
-//             // Opcional: eliminar temporal
-//             // fs.unlinkSync(tmpPath);
+    //         // Opcional: eliminar temporal
+    //         // fs.unlinkSync(tmpPath);
 
-//         } catch (err) {
-//             console.error("ERROR AL CARGAR MODELO:", err);
-//         }
-//     }
-
-
-//     private async ensureSession() {
-//         // Espera a que termine de cargar el modelo si todavía está cargando
-//         await this.loading;
-//         if (!this.session) throw new Error("Modelo no cargado");
-//     }
+    //     } catch (err) {
+    //         console.error("ERROR AL CARGAR MODELO:", err);
+    //     }
+    // }
 
 
-//     async removeBackground(buffer: Buffer): Promise<Buffer> {
-//         const image = await Jimp.read(buffer);
-//         const resized = image.clone().resize(320, 320);
-
-//         // tensor CHW
-//         const data = new Float32Array(1 * 3 * 320 * 320);
-//         let idx = 0;
-
-//         resized.scan(0, 0, 320, 320, function (x, y, i) {
-//             const r = this.bitmap.data[i] / 255;
-//             const g = this.bitmap.data[i + 1] / 255;
-//             const b = this.bitmap.data[i + 2] / 255;
-
-//             data[idx] = r;
-//             data[idx + 320 * 320] = g;
-//             data[idx + 2 * 320 * 320] = b;
-//             idx++;
-//         });
-
-//         const tensor = new ort.Tensor('float32', data, [1, 3, 320, 320]);
-//         // const output = await this.session.run({ "input.1": tensor });
-//         const output = await this.session!.run({ 'input.1': tensor });
+    private async ensureSession() {
+        // Espera a que termine de cargar el modelo si todavía está cargando
+        await this.loading;
+        if (!this.session) throw new Error("Modelo no cargado");
+    }
 
 
-//         const mask = output[Object.keys(output)[0]].data;
-//         const maskImg = new Jimp(320, 320);
+    async removeBackground(buffer: Buffer): Promise<Buffer> {
+        const image = await Jimp.read(buffer);
+        const resized = image.clone().resize(320, 320);
 
-//         for (let i = 0; i < mask.length; i++) {
-//             let m = Number(mask[i]);
+        // tensor CHW
+        const data = new Float32Array(1 * 3 * 320 * 320);
+        let idx = 0;
 
-//             // Mejorar bordes (magia ✨)
-//             m = Math.pow(m, 1.5); // 1.5-2.2 funciona excelente
+        resized.scan(0, 0, 320, 320, function (x, y, i) {
+            const r = this.bitmap.data[i] / 255;
+            const g = this.bitmap.data[i + 1] / 255;
+            const b = this.bitmap.data[i + 2] / 255;
 
-//             const v = Math.min(Math.max(m * 255, 0), 255);
+            data[idx] = r;
+            data[idx + 320 * 320] = g;
+            data[idx + 2 * 320 * 320] = b;
+            idx++;
+        });
 
-//             const pos = i * 4;
+        const tensor = new ort.Tensor('float32', data, [1, 3, 320, 320]);
+        // const output = await this.session.run({ "input.1": tensor });
+        const output = await this.session!.run({ 'input.1': tensor });
 
-//             maskImg.bitmap.data[pos] = v;
-//             maskImg.bitmap.data[pos + 1] = v;
-//             maskImg.bitmap.data[pos + 2] = v;
-//             maskImg.bitmap.data[pos + 3] = 255;
-//         }
 
-//         const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
-//         const outputImg = image.clone();
+        const mask = output[Object.keys(output)[0]].data;
+        const maskImg = new Jimp(320, 320);
 
-//         outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
-//             const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
-//             this.bitmap.data[i + 3] = m;
-//         });
+        for (let i = 0; i < mask.length; i++) {
+            let m = Number(mask[i]);
 
-//         return outputImg.getBufferAsync("image/png");
-//     }
+            // Mejorar bordes (magia ✨)
+            m = Math.pow(m, 1.5); // 1.5-2.2 funciona excelente
 
-//     async removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
-//         await this.ensureSession(); // ⚠️ importante
-//         const image = await Jimp.read(buffer);
+            const v = Math.min(Math.max(m * 255, 0), 255);
 
-//         const size = 1024;
-//         const resized = image.clone().resize(size, size);
-//         const data = new Float32Array(1 * 3 * size * size);
-//         let idx = 0;
+            const pos = i * 4;
 
-//         resized.scan(0, 0, size, size, function (x, y, i) {
-//             data[idx] = this.bitmap.data[i] / 255;
-//             data[idx + size * size] = this.bitmap.data[i + 1] / 255;
-//             data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255;
-//             idx++;
-//         });
+            maskImg.bitmap.data[pos] = v;
+            maskImg.bitmap.data[pos + 1] = v;
+            maskImg.bitmap.data[pos + 2] = v;
+            maskImg.bitmap.data[pos + 3] = 255;
+        }
 
-//         const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+        const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
+        const outputImg = image.clone();
 
-//         // ⚠️ Ejecutamos la sesión ya cargada
-//         const output = await this.sessionBRIA!.run({ "input": tensor });
-//         const maskData = output[Object.keys(output)[0]].data;
+        outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
+            const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
+            this.bitmap.data[i + 3] = m;
+        });
 
-//         const maskImg = new Jimp(size, size);
-//         for (let i = 0; i < maskData.length; i++) {
-//             let m = Math.pow(Number(maskData[i]), 2.2);
-//             const v = Math.min(Math.max(m * 255, 0), 255);
-//             const pos = i * 4;
-//             maskImg.bitmap.data[pos] = v;
-//             maskImg.bitmap.data[pos + 1] = v;
-//             maskImg.bitmap.data[pos + 2] = v;
-//             maskImg.bitmap.data[pos + 3] = 255;
-//         }
+        return outputImg.getBufferAsync("image/png");
+    }
 
-//         const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
-//         const outputImg = image.clone();
-//         outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
-//             const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
-//             this.bitmap.data[i + 3] = m;
-//         });
+    async removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
+        await this.ensureSession(); // ⚠️ importante
+        const image = await Jimp.read(buffer);
 
-//         return outputImg.getBufferAsync("image/png");
-//     }
+        const size = 1024;
+        const resized = image.clone().resize(size, size);
+        const data = new Float32Array(1 * 3 * size * size);
+        let idx = 0;
 
-//     async removeBackgroundMODEL20(buffer: Buffer): Promise<Buffer> {
-//         await this.ensureSession();
+        resized.scan(0, 0, size, size, function (x, y, i) {
+            data[idx] = this.bitmap.data[i] / 255;
+            data[idx + size * size] = this.bitmap.data[i + 1] / 255;
+            data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255;
+            idx++;
+        });
 
-//         const image = await Jimp.read(buffer);
-//         const size = 1024; // puedes ajustar según tu modelo
-//         const resized = image.clone().resize(size, size);
+        const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
 
-//         const data = new Float32Array(1 * 3 * size * size);
-//         let idx = 0;
+        // ⚠️ Ejecutamos la sesión ya cargada
+        const output = await this.sessionBRIA!.run({ "input": tensor });
+        const maskData = output[Object.keys(output)[0]].data;
 
-//         resized.scan(0, 0, size, size, function (x, y, i) {
-//             data[idx] = this.bitmap.data[i] / 255;
-//             data[idx + size * size] = this.bitmap.data[i + 1] / 255;
-//             data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255;
-//             idx++;
-//         });
+        const maskImg = new Jimp(size, size);
+        for (let i = 0; i < maskData.length; i++) {
+            let m = Math.pow(Number(maskData[i]), 2.2);
+            const v = Math.min(Math.max(m * 255, 0), 255);
+            const pos = i * 4;
+            maskImg.bitmap.data[pos] = v;
+            maskImg.bitmap.data[pos + 1] = v;
+            maskImg.bitmap.data[pos + 2] = v;
+            maskImg.bitmap.data[pos + 3] = 255;
+        }
 
-//         const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
-//         const output = await this.sessionMODEL20!.run({ "pixel_values": tensor });
+        const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
+        const outputImg = image.clone();
+        outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
+            const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
+            this.bitmap.data[i + 3] = m;
+        });
 
-//         const maskData = output[Object.keys(output)[0]].data;
-//         const maskImg = new Jimp(size, size);
+        return outputImg.getBufferAsync("image/png");
+    }
 
-//         for (let i = 0; i < maskData.length; i++) {
-//             let m = Math.pow(Number(maskData[i]), 2.2); // mejora bordes
-//             const v = Math.min(Math.max(m * 255, 0), 255);
-//             const pos = i * 4;
-//             maskImg.bitmap.data[pos] = v;
-//             maskImg.bitmap.data[pos + 1] = v;
-//             maskImg.bitmap.data[pos + 2] = v;
-//             maskImg.bitmap.data[pos + 3] = 255;
-//         }
+    async removeBackgroundMODEL20(buffer: Buffer): Promise<Buffer> {
+        await this.ensureSession();
 
-//         const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
-//         const outputImg = image.clone();
-//         outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
-//             const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
-//             this.bitmap.data[i + 3] = m;
-//         });
+        const image = await Jimp.read(buffer);
+        const size = 1024; // puedes ajustar según tu modelo
+        const resized = image.clone().resize(size, size);
 
-//         return outputImg.getBufferAsync("image/png");
-//     }
+        const data = new Float32Array(1 * 3 * size * size);
+        let idx = 0;
 
-//     async animateGANv2(buffer: Buffer): Promise<Buffer> {
-//         await this.ensureSession(); // asegurar que los modelos estén cargados
-//         const image = await Jimp.read(buffer);
+        resized.scan(0, 0, size, size, function (x, y, i) {
+            data[idx] = this.bitmap.data[i] / 255;
+            data[idx + size * size] = this.bitmap.data[i + 1] / 255;
+            data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255;
+            idx++;
+        });
 
-//         const size = 512; // tamaño del modelo
-//         const resized = image.clone().resize(size, size);
+        const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+        const output = await this.sessionMODEL20!.run({ "pixel_values": tensor });
 
-//         // Convertir imagen a tensor CHW normalizado [0,1]
-//         const data = new Float32Array(1 * 3 * size * size);
-//         let idx = 0;
-//         resized.scan(0, 0, size, size, function (x, y, i) {
-//             data[idx] = this.bitmap.data[i] / 255; // R
-//             data[idx + size * size] = this.bitmap.data[i + 1] / 255; // G
-//             data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255; // B
-//             idx++;
-//         });
+        const maskData = output[Object.keys(output)[0]].data;
+        const maskImg = new Jimp(size, size);
 
-//         const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+        for (let i = 0; i < maskData.length; i++) {
+            let m = Math.pow(Number(maskData[i]), 2.2); // mejora bordes
+            const v = Math.min(Math.max(m * 255, 0), 255);
+            const pos = i * 4;
+            maskImg.bitmap.data[pos] = v;
+            maskImg.bitmap.data[pos + 1] = v;
+            maskImg.bitmap.data[pos + 2] = v;
+            maskImg.bitmap.data[pos + 3] = 255;
+        }
 
-//         // Ejecutar inferencia
-//         const output = await this.sessionGANv2!.run({ "input_image": tensor });
+        const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
+        const outputImg = image.clone();
+        outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
+            const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
+            this.bitmap.data[i + 3] = m;
+        });
 
-//         // Type assertion: decimos que outputData es Float32Array
-//         const outputData = output[Object.keys(output)[0]].data as Float32Array;
+        return outputImg.getBufferAsync("image/png");
+    }
 
-//         // Convertir output a imagen
-//         const outputImg = new Jimp(size, size);
-//         for (let i = 0; i < size * size; i++) {
-//             const r = Math.min(Math.max(outputData[i] * 255, 0), 255);
-//             const g = Math.min(Math.max(outputData[i + size * size] * 255, 0), 255);
-//             const b = Math.min(Math.max(outputData[i + 2 * size * size] * 255, 0), 255);
+    async animateGANv2(buffer: Buffer): Promise<Buffer> {
+        await this.ensureSession(); // asegurar que los modelos estén cargados
+        const image = await Jimp.read(buffer);
 
-//             const pos = i * 4;
-//             outputImg.bitmap.data[pos] = r;
-//             outputImg.bitmap.data[pos + 1] = g;
-//             outputImg.bitmap.data[pos + 2] = b;
-//             outputImg.bitmap.data[pos + 3] = 255;
-//         }
+        const size = 512; // tamaño del modelo
+        const resized = image.clone().resize(size, size);
 
-//         return outputImg.getBufferAsync("image/png");
-//     }
+        // Convertir imagen a tensor CHW normalizado [0,1]
+        const data = new Float32Array(1 * 3 * size * size);
+        let idx = 0;
+        resized.scan(0, 0, size, size, function (x, y, i) {
+            data[idx] = this.bitmap.data[i] / 255; // R
+            data[idx + size * size] = this.bitmap.data[i + 1] / 255; // G
+            data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255; // B
+            idx++;
+        });
+
+        const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+
+        // Ejecutar inferencia
+        const output = await this.sessionGANv2!.run({ "input_image": tensor });
+
+        // Type assertion: decimos que outputData es Float32Array
+        const outputData = output[Object.keys(output)[0]].data as Float32Array;
+
+        // Convertir output a imagen
+        const outputImg = new Jimp(size, size);
+        for (let i = 0; i < size * size; i++) {
+            const r = Math.min(Math.max(outputData[i] * 255, 0), 255);
+            const g = Math.min(Math.max(outputData[i + size * size] * 255, 0), 255);
+            const b = Math.min(Math.max(outputData[i + 2 * size * size] * 255, 0), 255);
+
+            const pos = i * 4;
+            outputImg.bitmap.data[pos] = r;
+            outputImg.bitmap.data[pos + 1] = g;
+            outputImg.bitmap.data[pos + 2] = b;
+            outputImg.bitmap.data[pos + 3] = 255;
+        }
+
+        return outputImg.getBufferAsync("image/png");
+    }
 
 
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import Jimp from 'jimp';
 import * as ort from 'onnxruntime-node';
-import path from 'path/win32';
+import * as path from 'path';
 import * as fs from 'fs';
 @Injectable()
 export class BackgroundService {

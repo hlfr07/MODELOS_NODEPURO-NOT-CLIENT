@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Jimp from 'jimp';
-import * as ort from 'onnxruntime-node';
+import * as ort from 'onnxruntime-web';
 import * as path from 'path';
 import * as fs from 'fs';
 @Injectable()
@@ -17,14 +17,15 @@ export class BackgroundService {
     }
 
     private async loadModel() {
-        const ruta = path.join(__dirname, '..', '..', 'src' ,'assets');
+        const ruta = path.join(__dirname, '..', '..', 'src', 'assets');
         console.log("Ruta de modelos:", ruta);
         console.log("Archivos en assets:", fs.readdirSync(ruta));
         try {
             // this.session = await ort.InferenceSession.create(path.join(ruta, 'u2net.onnx'));
             // console.log("MODELO U2NET CARGADO");
 
-            this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'));
+            this.sessionBRIA = await ort.InferenceSession.create(path.join(ruta, 'bria.onnx'),
+                { executionProviders: ['wasm'] });
             console.log("MODELO BRIA CARGADO");
 
             // this.sessionMODEL20 = await ort.InferenceSession.create(path.join(ruta, 'model20.onnx'));

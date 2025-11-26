@@ -42,8 +42,8 @@ export class BackgroundService {
         console.log("Ruta de modelos:", ruta);
 
         try {
-            // --- CARGAR BRIA POR CHUNKS ---
-            const chunkDir = path.join(ruta); // carpeta donde guardaste los chunks
+            // --- CARGAR BRIA POR CHUNKS CON STREAM ---
+            const chunkDir = ruta; // carpeta donde guardaste los chunks
             const chunkFiles = fs.readdirSync(chunkDir)
                 .sort((a, b) => {
                     const na = Number(a.match(/\d+/)?.[0]);
@@ -53,21 +53,34 @@ export class BackgroundService {
 
             console.log('🔹 Archivos encontrados:', chunkFiles);
 
-            const chunks: Buffer[] = chunkFiles.map(f => {
-                console.log('🔹 Leyendo chunk:', f);
-                return fs.readFileSync(path.join(chunkDir, f));
-            });
+            // Archivo temporal donde vamos a unir los chunks
+            const tmpPath = path.join(chunkDir, 'bria_temp.onnx');
+            const writeStream = fs.createWriteStream(tmpPath);
 
-            const modelBuffer = Buffer.concat(chunks);
-            console.log('✔ Modelo concatenado, tamaño:', modelBuffer.length);
+            for (const chunk of chunkFiles) {
+                const chunkPath = path.join(chunkDir, chunk);
+                await new Promise<void>((resolve, reject) => {
+                    const readStream = fs.createReadStream(chunkPath);
+                    readStream.pipe(writeStream, { end: false });
+                    readStream.on('end', resolve);
+                    readStream.on('error', reject);
+                });
+            }
 
-            this.sessionBRIA = await ort.InferenceSession.create(modelBuffer);
-            console.log("MODELO BRIA CARGADO POR CHUNKS");
+            writeStream.end(); // cerrar el stream
+
+            // Cargar modelo ONNX desde el archivo temporal
+            this.sessionBRIA = await ort.InferenceSession.create(tmpPath);
+            console.log("MODELO BRIA CARGADO POR CHUNKS CON STREAMING ✅");
+
+            // (Opcional) eliminar archivo temporal
+            // fs.unlinkSync(tmpPath);
 
         } catch (err) {
             console.error("ERROR AL CARGAR MODELO:", err);
         }
     }
+
 
 
     private async ensureSession() {

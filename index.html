@@ -30,7 +30,7 @@
             const formData = new FormData();
             formData.append("image", file);
 
-            const res = await fetch("https://modelos-nodepuro-not-client.vercel.app/background/bria", {
+            const res = await fetch("http://localhost:3000/background/bria", {
                 method: "POST",
                 body: formData
             });

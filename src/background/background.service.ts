@@ -105,7 +105,7 @@ export class BackgroundService {
             const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
             this.bitmap.data[i + 3] = m;
         });
-        console.log("✔ [BRIA] → Máscara aplicada.");
+        console.log("✔ [BRIA] → Máscara aplicada."); 
 
         console.log("💾 [BRIA] → Generando buffer PNG final...");
         const resultBuffer = await outputImg.getBufferAsync("image/png");

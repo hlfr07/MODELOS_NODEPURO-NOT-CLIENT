@@ -13,6 +13,10 @@ export class BackgroundController {
   @Post('bria')
   @UseInterceptors(FileInterceptor('image'))
   async removeBgBria(@UploadedFile() file: Express.Multer.File, @Res() res: Response) {
+    //Antes de pasarlo al servicio, vamos a validar que no pese mas de 1mb la imagen
+    if (file.size > 1 * 1024 * 1024) {
+      return res.status(400).json({ error: "La imagen no debe pesar más de 1MB" });
+    }
     const output = await this.backgroundService.removeBackgroundBRIA(file.buffer);
     res.setHeader('Content-Type', 'image/png');
     res.send(output);

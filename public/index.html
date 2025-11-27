@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remove BG - Elimina fondos con IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .comparison-container {
+            position: relative;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        .comparison-slider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: white;
+            cursor: ew-resize;
+            z-index: 30;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        
+        .comparison-slider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .comparison-slider::after {
+            content: '⟷';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Hero Section -->
+    <div class="gradient-bg min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="container mx-auto px-4 py-6">
+            <nav class="flex justify-between items-center">
+                <div class="text-white text-2xl font-bold">Remove BG</div>
+                <a href="#contact" class="bg-white text-purple-600 px-6 py-2 rounded-full font-semibold hover:bg-opacity-90 transition">
+                    Contacto
+                </a>
+            </nav>
+        </header>
+
+        <!-- Hero Content -->
+        <div class="flex-grow container mx-auto px-4 flex flex-col justify-center items-center text-center">
+            <h1 class="text-5xl md:text-7xl font-bold text-white mb-6 fade-in">
+                Elimina fondos con IA
+            </h1>
+            <p class="text-xl md:text-2xl text-purple-100 mb-12 max-w-2xl fade-in">
+                Tecnología de vanguardia powered by BRIA AI para remover fondos de imágenes de forma instantánea y precisa
+            </p>
+            
+            <!-- Upload Section -->
+            <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 w-full max-w-2xl fade-in">
+                <form id="uploadForm" class="space-y-6">
+                    <div class="border-4 border-dashed border-purple-300 rounded-xl p-12 hover:border-purple-500 transition cursor-pointer" id="dropZone">
+                        <input type="file" id="fileInput" accept="image/*" class="hidden" />
+                        <div class="text-center">
+                            <svg class="mx-auto h-16 w-16 text-purple-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p class="text-gray-600 text-lg mb-2">Arrastra tu imagen aquí o haz clic para seleccionar</p>
+                            <p class="text-gray-400 text-sm">PNG, JPG, WEBP (máx. 1MB)</p>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="submitBtn" class="w-full gradient-bg text-white py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        Eliminar fondo
+                    </button>
+                </form>
+                
+                <div id="loading" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+                    <p class="text-gray-600 mt-4">Procesando imagen...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Section -->
+    <div id="resultSection" class="hidden min-h-screen bg-gray-50 py-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl md:text-5xl font-bold text-center text-gray-800 mb-4">
+                ¡Resultado increíble!
+            </h2>
+            <p class="text-center text-gray-600 mb-12 text-lg">
+                Desliza para comparar antes y después
+            </p>
+            
+            <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <div id="comparisonContainer" class="comparison-container relative aspect-video bg-gray-200">
+                    <!-- Original image (right side) -->
+                    <img id="originalImage" class="absolute inset-0 w-full h-full object-contain" />
+                    
+                    <!-- Processed image (left side) with clip -->
+                    <div id="processedContainer" class="absolute inset-0" style="clip-path: inset(0 50% 0 0);">
+                        <img id="processedImage" class="absolute inset-0 w-full h-full object-contain" style="background: repeating-conic-gradient(#e5e5e5 0% 25%, #ffffff 0% 50%) 50% / 20px 20px;" />
+                    </div>
+                    
+                    <!-- Slider -->
+                    <div id="slider" class="comparison-slider" style="left: 50%;"></div>
+                </div>
+                
+                <div class="p-8 text-center">
+                    <button onclick="location.reload()" class="gradient-bg text-white px-8 py-3 rounded-xl font-semibold hover:opacity-90 transition">
+                        Procesar otra imagen
+                    </button>
+                    <button id="downloadBtn" class="ml-4 bg-gray-800 text-white px-8 py-3 rounded-xl font-semibold hover:bg-gray-700 transition">
+                        Descargar resultado
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="bg-white py-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center text-gray-800 mb-16">Tecnología de vanguardia</h2>
+            
+            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">BRIA AI</h3>
+                    <p class="text-gray-600">Modelo de inteligencia artificial de última generación especializado en segmentación de imágenes</p>
+                </div>
+                
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">NestJS</h3>
+                    <p class="text-gray-600">Backend robusto y escalable construido con Node.js y TypeScript para un procesamiento eficiente</p>
+                </div>
+                
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Seguro y rápido</h3>
+                    <p class="text-gray-600">Procesamiento instantáneo con validaciones de seguridad y límites de tamaño optimizados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div id="contact" class="gradient-bg py-20">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-4xl font-bold text-white mb-8">¿Tienes un proyecto en mente?</h2>
+            <p class="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+                Desarrollemos juntos soluciones innovadoras con inteligencia artificial
+            </p>
+            
+            <div class="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-8 max-w-md mx-auto">
+                <div class="space-y-4 text-white">
+                    <div class="flex items-center justify-center space-x-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <span class="text-lg font-semibold">934313363</span>
+                    </div>
+                    <div class="pt-4 border-t border-white border-opacity-20">
+                        <p class="text-purple-100">Desarrollado por</p>
+                        <p class="text-2xl font-bold">HLFR</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-8">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2024 Remove BG. Powered by BRIA AI + NestJS</p>
+        </div>
+    </footer>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const comparisonContainer = document.getElementById('comparisonContainer');
+        const slider = document.getElementById('slider');
+        const processedContainer = document.getElementById('processedContainer');
+        const originalImage = document.getElementById('originalImage');
+        const processedImage = document.getElementById('processedImage');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        let processedBlob = null;
+        let isDragging = false;
+
+        // Click to upload
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Preview image when selected
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    dropZone.innerHTML = `
+                        <img src="${e.target.result}" class="max-h-64 mx-auto rounded-lg shadow-lg" />
+                        <p class="text-gray-600 mt-4">Imagen cargada - Haz clic en "Eliminar fondo"</p>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-purple-500');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-purple-500');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-purple-500');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+            }
+        });
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Por favor selecciona una imagen');
+                return;
+            }
+
+            if (file.size > 1 * 1024 * 1024) {
+                alert('La imagen no debe pesar más de 1MB');
+                return;
+            }
+
+            form.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+
+                const res = await fetch('/background/bria', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error('Error al procesar la imagen');
+
+                const blob = await res.blob();
+                processedBlob = blob;
+                
+                // Set images
+                const originalUrl = URL.createObjectURL(file);
+                const processedUrl = URL.createObjectURL(blob);
+                
+                originalImage.src = originalUrl;
+                processedImage.src = processedUrl;
+
+                // Show result
+                loading.classList.add('hidden');
+                resultSection.classList.remove('hidden');
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                alert('Error: ' + error.message);
+                form.classList.remove('hidden');
+                loading.classList.add('hidden');
+            }
+        });
+
+        // Comparison slider
+        function updateSlider(x) {
+            const rect = comparisonContainer.getBoundingClientRect();
+            const position = Math.max(0, Math.min(x - rect.left, rect.width));
+            const percentage = (position / rect.width) * 100;
+            
+            slider.style.left = percentage + '%';
+            processedContainer.style.clipPath = `inset(0 ${100 - percentage}% 0 0)`;
+        }
+
+        slider.addEventListener('mousedown', () => isDragging = true);
+        
+        comparisonContainer.addEventListener('mousemove', (e) => {
+            if (isDragging) updateSlider(e.clientX);
+        });
+
+        document.addEventListener('mouseup', () => isDragging = false);
+
+        // Touch events
+        comparisonContainer.addEventListener('touchmove', (e) => {
+            updateSlider(e.touches[0].clientX);
+        });
+
+        // Click to position
+        comparisonContainer.addEventListener('click', (e) => {
+            if (e.target !== slider) updateSlider(e.clientX);
+        });
+
+        // Download button
+        downloadBtn.addEventListener('click', () => {
+            if (!processedBlob) return;
+            
+            const url = URL.createObjectURL(processedBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'imagen-sin-fondo.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat ONNX GPT</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    #chat { width: 400px; height: 500px; border: 1px solid #444; padding: 10px; overflow-y: auto; background: #222; margin-bottom: 10px; }
+    #chat div { margin-bottom: 10px; }
+    #chat .user { color: #0af; }
+    #chat .bot { color: #fa0; }
+    input { width: 300px; padding: 8px; border-radius: 4px; border: none; }
+    button { padding: 8px 12px; margin-left: 5px; border-radius: 4px; border: none; background: #0af; color: #fff; cursor: pointer; }
+    button:hover { background: #08c; }
+  </style>
+</head>
+<body>
+
+  <h1>Chat GPT ONNX</h1>
+  <div id="chat"></div>
+  <div>
+    <input type="text" id="prompt" placeholder="Escribe tu mensaje..." />
+    <button id="sendBtn">Enviar</button>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const chatDiv = document.getElementById('chat');
+    const promptInput = document.getElementById('prompt');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Cambia la URL si tu backend está en otro host/puerto
+    const socket = io('http://localhost:3000');
+
+    // Función para mostrar mensajes
+    function addMessage(text, sender) {
+      const div = document.createElement('div');
+      div.className = sender;
+      div.textContent = text;
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    // Escuchar respuesta del servidor
+    socket.on('receiveMessage', (data) => {
+      addMessage(data.text, 'bot');
+    });
+
+    // Enviar mensaje al servidor
+    function sendMessage() {
+      const text = promptInput.value.trim();
+      if (!text) return;
+      addMessage(text, 'user');
+
+      socket.emit('sendPrompt', {
+        sessionId: 'usuario1', // puedes usar un id dinámico
+        prompt: text
+      });
+
+      promptInput.value = '';
+      promptInput.focus();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    promptInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>

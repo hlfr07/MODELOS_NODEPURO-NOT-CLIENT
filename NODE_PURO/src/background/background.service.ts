@@ -4,10 +4,19 @@ import Jimp from 'jimp';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const MODEL_SIZE = 1024;
+
 @Injectable()
 export class BackgroundService {
+
     private sessionBRIA: ort.InferenceSession | null = null;
     private loading: Promise<void>;
+
+    // 🔒 Mutex: ONNX WASM NO es paralelo
+    private running: Promise<any> = Promise.resolve();
+
+    // ♻️ Buffer reutilizable (CRÍTICO)
+    private inputBuffer = new Float32Array(1 * 3 * MODEL_SIZE * MODEL_SIZE);
 
     constructor() {
         console.log('🚀 Iniciando carga del modelo BRIA...');
@@ -18,42 +27,36 @@ export class BackgroundService {
     // 🔹 CARGA DEL MODELO
     // ===============================
     private async loadModel(): Promise<void> {
-        try {
-            const chunkDir = path.join(__dirname, '..', 'assets');
+        const chunkDir = path.join(__dirname, '..', 'assets');
 
-            let files = fs
-                .readdirSync(chunkDir)
-                .filter(f => f.endsWith('.bin'))
-                .sort((a, b) => {
-                    const na = Number(a.match(/\d+/)?.[0] ?? 0);
-                    const nb = Number(b.match(/\d+/)?.[0] ?? 0);
-                    return na - nb;
-                });
-
-            if (!files.length) {
-                throw new Error('No se encontraron chunks .bin del modelo');
-            }
-
-            console.log(`📦 Chunks encontrados: ${files.length}`);
-
-            const buffers = files.map(f =>
-                fs.readFileSync(path.join(chunkDir, f))
-            );
-
-            const modelBuffer = Buffer.concat(buffers);
-
-            console.log(`✔ Modelo unido (${modelBuffer.length} bytes)`);
-
-            this.sessionBRIA = await ort.InferenceSession.create(modelBuffer, {
-                executionProviders: ['cpu'], // 👈 BACKEND REAL
+        const files = fs
+            .readdirSync(chunkDir)
+            .filter(f => f.endsWith('.bin'))
+            .sort((a, b) => {
+                const na = Number(a.match(/\d+/)?.[0] ?? 0);
+                const nb = Number(b.match(/\d+/)?.[0] ?? 0);
+                return na - nb;
             });
 
-            console.log('🟢 Sesión ONNX creada correctamente');
-
-        } catch (err) {
-            console.error('❌ Error cargando modelo BRIA:', err);
-            throw err;
+        if (!files.length) {
+            throw new Error('No se encontraron chunks .bin del modelo');
         }
+
+        console.log(`📦 Chunks encontrados: ${files.length}`);
+
+        const buffers = files.map(f =>
+            fs.readFileSync(path.join(chunkDir, f))
+        );
+
+        const modelBuffer = Buffer.concat(buffers);
+
+        console.log(`✔ Modelo unido (${modelBuffer.length} bytes)`);
+
+        this.sessionBRIA = await ort.InferenceSession.create(modelBuffer, {
+            executionProviders: ['cpu'], // backend correcto
+        });
+
+        console.log('🟢 Sesión ONNX CPU lista');
     }
 
     private async ensureLoaded(): Promise<void> {
@@ -64,10 +67,20 @@ export class BackgroundService {
     }
 
     // ===============================
-    // 🔹 REMOVE BACKGROUND
+    // 🔹 API PÚBLICA (CON MUTEX)
     // ===============================
     async removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
-        console.log('🟦 [BRIA] Iniciando procesamiento...');
+        return this.running = this.running.then(() =>
+            this._removeBackgroundBRIA(buffer)
+        );
+    }
+
+    // ===============================
+    // 🔹 IMPLEMENTACIÓN REAL
+    // ===============================
+    private async _removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
+
+        console.log('🟦 [BRIA] Procesando imagen...');
         await this.ensureLoaded();
 
         // 📥 Leer imagen
@@ -77,67 +90,96 @@ export class BackgroundService {
 
         console.log(`📏 Imagen original: ${origW}x${origH}`);
 
-        // 🔄 Resize a 1024x1024
-        const size = 1024;
-        const resized = image.clone().resize(size, size);
+        // ===============================
+        // 🔹 RESIZE + PADDING (NO DEFORMAR)
+        // ===============================
+        const scale = Math.min(
+            MODEL_SIZE / origW,
+            MODEL_SIZE / origH
+        );
 
-        // 🧮 Tensor [1,3,1024,1024]
-        const inputData = new Float32Array(1 * 3 * size * size);
-        let pixelIndex = 0;
+        const w = Math.round(origW * scale);
+        const h = Math.round(origH * scale);
 
-        resized.scan(0, 0, size, size, function (_x, _y, idx) {
-            inputData[pixelIndex] = this.bitmap.data[idx] / 255;
-            inputData[pixelIndex + size * size] = this.bitmap.data[idx + 1] / 255;
-            inputData[pixelIndex + 2 * size * size] = this.bitmap.data[idx + 2] / 255;
-            pixelIndex++;
-        });
+        const resized = image.clone().resize(w, h);
+
+        const canvas = new Jimp(MODEL_SIZE, MODEL_SIZE, 0x000000FF);
+        const offsetX = ((MODEL_SIZE - w) / 2) | 0;
+        const offsetY = ((MODEL_SIZE - h) / 2) | 0;
+
+        canvas.composite(resized, offsetX, offsetY);
+
+        // ===============================
+        // 🔹 PREPROCESADO ULTRA RÁPIDO
+        // ===============================
+        const imgData = canvas.bitmap.data; // RGBA
+        const data = this.inputBuffer;
+        const hw = MODEL_SIZE * MODEL_SIZE;
+
+        for (let i = 0, p = 0; i < hw; i++, p += 4) {
+            data[i] = imgData[p] / 255;
+            data[i + hw] = imgData[p + 1] / 255;
+            data[i + hw * 2] = imgData[p + 2] / 255;
+        }
 
         const inputTensor = new ort.Tensor(
             'float32',
-            inputData,
-            [1, 3, size, size],
+            data,
+            [1, 3, MODEL_SIZE, MODEL_SIZE]
         );
 
+        // ===============================
+        // 🔹 INFERENCIA
+        // ===============================
         console.log('⚙️ Ejecutando inferencia...');
         const output = await this.sessionBRIA!.run({ input: inputTensor });
 
         const outputKey = Object.keys(output)[0];
         const maskData = output[outputKey].data as Float32Array;
 
-        console.log(`🧠 Mask recibida: ${maskData.length}`);
+        // ===============================
+        // 🔹 CONSTRUIR MÁSCARA
+        // ===============================
+        const maskImg = new Jimp(MODEL_SIZE, MODEL_SIZE);
 
-        // 🎭 Construir máscara
-        const maskImg = new Jimp(size, size);
-
-        for (let i = 0; i < maskData.length; i++) {
+        for (let i = 0, p = 0; i < hw; i++, p += 4) {
             const m = Math.pow(maskData[i], 2.2);
-            const v = Math.max(0, Math.min(255, m * 255));
-            const p = i * 4;
-            maskImg.bitmap.data[p] = v;
-            maskImg.bitmap.data[p + 1] = v;
-            maskImg.bitmap.data[p + 2] = v;
+            const v = Math.min(Math.max(m * 255, 0), 255);
+            maskImg.bitmap.data[p] =
+                maskImg.bitmap.data[p + 1] =
+                maskImg.bitmap.data[p + 2] = v;
             maskImg.bitmap.data[p + 3] = 255;
         }
 
-        // 📐 Resize máscara al tamaño original
-        const maskResized = maskImg.resize(origW, origH);
+        // ===============================
+        // 🔹 QUITAR PADDING + RESIZE
+        // ===============================
+        const croppedMask = maskImg
+            .crop(offsetX, offsetY, w, h)
+            .resize(origW, origH);
 
-        // 🖼️ Aplicar alpha
+        // ===============================
+        // 🔹 APLICAR ALPHA
+        // ===============================
         const outputImg = image.clone();
-        outputImg.scan(0, 0, origW, origH, function (x, y, idx) {
-            const alpha = maskResized.bitmap.data[(y * origW + x) * 4];
-            this.bitmap.data[idx + 3] = alpha;
-        });
+        const maskBuf = croppedMask.bitmap.data;
 
-        // 💾 PNG final
+        for (let y = 0; y < origH; y++) {
+            for (let x = 0; x < origW; x++) {
+                const idx = (y * origW + x) * 4;
+                outputImg.bitmap.data[idx + 3] = maskBuf[idx];
+            }
+        }
+
+        // ===============================
+        // 🔹 SALIDA FINAL
+        // ===============================
         const result = await outputImg.getBufferAsync(Jimp.MIME_PNG);
 
-        console.log('🏁 Procesamiento terminado');
+        console.log('🏁 [BRIA] Procesamiento finalizado');
         return result;
     }
-
 }
-
 
 
 

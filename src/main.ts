@@ -14,7 +14,7 @@ async function bootstrap() {
       'Origin, X-Requested-With, Content-Type, Accept,Authorization,Authentication, Access-control-allow-credentials, Access-control-allow-headers, Access-control-allow-methods, Access-control-allow-origin, User-Agent, Referer, Accept-Encoding, Accept-Language, Access-Control-Request-Headers, Cache-Control, Pragma',
   });
 
-  app.use(express.static(path.join(__dirname, '..', 'public')));
+  app.use(express.static(path.join(__dirname, '..', '..', 'public')));
 
   // Ruta al modelo en dist/assets
   // const modelPath = path.join(__dirname, 'assets', 'bria.onnx');

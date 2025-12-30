@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as ort from 'onnxruntime-web';
+import * as ort from 'onnxruntime-node';
 import Jimp from 'jimp';
 import * as fs from 'fs';
 import * as path from 'path';

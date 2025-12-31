@@ -75,110 +75,184 @@ export class BackgroundService {
         );
     }
 
+    async _removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
+        console.log("🟦 [BRIA] → Iniciando procesamiento...");
+
+        await this.ensureLoaded();
+        console.log("🟩 [BRIA] → Modelo cargado correctamente.");
+
+        console.log("🔧 [BRIA] → ONNX Web cargado.");
+
+        console.log("📥 [BRIA] → Leyendo imagen...");
+        const image = await Jimp.read(buffer);
+        console.log(`📏 [BRIA] → Imagen original: ${image.bitmap.width}x${image.bitmap.height}`);
+
+        const size = 1024;
+        console.log("🔄 [BRIA] → Redimensionando imagen a 1024x1024...");
+        const resized = image.clone().resize(size, size);
+
+        console.log("🧮 [BRIA] → Generando tensor flotante...");
+        const data = new Float32Array(1 * 3 * size * size);
+        let idx = 0;
+
+        console.log("🖼️ [BRIA] → Iniciando lectura de píxeles...");
+        resized.scan(0, 0, size, size, function (x, y, i) {
+            data[idx] = this.bitmap.data[i] / 255;
+            data[idx + size * size] = this.bitmap.data[i + 1] / 255;
+            data[idx + 2 * size * size] = this.bitmap.data[i + 2] / 255;
+            idx++;
+        });
+        console.log("✔ [BRIA] → Lectura de píxeles completada.");
+
+        console.log("📦 [BRIA] → Creando tensor ORT...");
+        const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);
+
+        console.log("⚙️ [BRIA] → Ejecutando modelo...");
+        const output = await this.sessionBRIA!.run({ "input": tensor });
+        console.log("🟩 [BRIA] → Modelo ejecutado correctamente.");
+
+        const outputKey = Object.keys(output)[0];
+        console.log("🔑 [BRIA] → Output key:", outputKey);
+
+        const maskData = output[outputKey].data;
+        console.log("📊 [BRIA] → Mask recibido, tamaño:", maskData.length);
+
+        console.log("🖌️ [BRIA] → Construyendo maskImg...");
+        const maskImg = new Jimp(size, size);
+        for (let i = 0; i < maskData.length; i++) {
+            let m = Math.pow(Number(maskData[i]), 2.2);
+            const v = Math.min(Math.max(m * 255, 0), 255);
+            const pos = i * 4;
+            maskImg.bitmap.data[pos] = v;
+            maskImg.bitmap.data[pos + 1] = v;
+            maskImg.bitmap.data[pos + 2] = v;
+            maskImg.bitmap.data[pos + 3] = 255;
+        }
+        console.log("✔ [BRIA] → maskImg creado.");
+
+        console.log("📐 [BRIA] → Redimensionando mask al tamaño original...");
+        const maskResized = maskImg.resize(image.bitmap.width, image.bitmap.height);
+
+        console.log("🖼️ [BRIA] → Aplicando máscara a imagen original...");
+        const outputImg = image.clone();
+        outputImg.scan(0, 0, outputImg.bitmap.width, outputImg.bitmap.height, function (x, y, i) {
+            const m = maskResized.bitmap.data[(y * maskResized.bitmap.width + x) * 4];
+            this.bitmap.data[i + 3] = m;
+        });
+        console.log("✔ [BRIA] → Máscara aplicada.");
+
+        console.log("💾 [BRIA] → Generando buffer PNG final...");
+        const resultBuffer = await outputImg.getBufferAsync("image/png");
+
+        console.log("🏁 [BRIA] → Procesamiento finalizado. Tamaño buffer:", resultBuffer.length);
+
+        return resultBuffer;
+    }
+
     // ===============================
     // 🔹 IMPLEMENTACIÓN REAL
     // ===============================
-    private async _removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
+    // private async _removeBackgroundBRIA(buffer: Buffer): Promise<Buffer> {
 
-        console.log('🟦 [BRIA] Procesando imagen...');
-        await this.ensureLoaded();
+    //     console.log('🟦 [BRIA] Procesando imagen...');
+    //     await this.ensureLoaded();
 
-        // 📥 Leer imagen
-        const image = await Jimp.read(buffer);
-        const origW = image.bitmap.width;
-        const origH = image.bitmap.height;
+    //     // 📥 Leer imagen
+    //     const image = await Jimp.read(buffer);
+    //     const origW = image.bitmap.width;
+    //     const origH = image.bitmap.height;
 
-        console.log(`📏 Imagen original: ${origW}x${origH}`);
+    //     console.log(`📏 Imagen original: ${origW}x${origH}`);
 
-        // ===============================
-        // 🔹 RESIZE + PADDING (NO DEFORMAR)
-        // ===============================
-        const scale = Math.min(
-            MODEL_SIZE / origW,
-            MODEL_SIZE / origH
-        );
+    //     // ===============================
+    //     // 🔹 RESIZE + PADDING (NO DEFORMAR)
+    //     // ===============================
+    //     const scale = Math.min(
+    //         MODEL_SIZE / origW,
+    //         MODEL_SIZE / origH
+    //     );
 
-        const w = Math.round(origW * scale);
-        const h = Math.round(origH * scale);
+    //     const w = Math.round(origW * scale);
+    //     const h = Math.round(origH * scale);
 
-        const resized = image.clone().resize(w, h);
+    //     const resized = image.clone().resize(w, h);
 
-        const canvas = new Jimp(MODEL_SIZE, MODEL_SIZE, 0x000000FF);
-        const offsetX = ((MODEL_SIZE - w) / 2) | 0;
-        const offsetY = ((MODEL_SIZE - h) / 2) | 0;
+    //     const canvas = new Jimp(MODEL_SIZE, MODEL_SIZE, 0x000000FF);
+    //     const offsetX = ((MODEL_SIZE - w) / 2) | 0;
+    //     const offsetY = ((MODEL_SIZE - h) / 2) | 0;
 
-        canvas.composite(resized, offsetX, offsetY);
+    //     canvas.composite(resized, offsetX, offsetY);
 
-        // ===============================
-        // 🔹 PREPROCESADO ULTRA RÁPIDO
-        // ===============================
-        const imgData = canvas.bitmap.data; // RGBA
-        const data = this.inputBuffer;
-        const hw = MODEL_SIZE * MODEL_SIZE;
+    //     // ===============================
+    //     // 🔹 PREPROCESADO ULTRA RÁPIDO
+    //     // ===============================
+    //     const imgData = canvas.bitmap.data; // RGBA
+    //     const data = this.inputBuffer;
+    //     const hw = MODEL_SIZE * MODEL_SIZE;
 
-        for (let i = 0, p = 0; i < hw; i++, p += 4) {
-            data[i] = imgData[p] / 255;
-            data[i + hw] = imgData[p + 1] / 255;
-            data[i + hw * 2] = imgData[p + 2] / 255;
-        }
+    //     for (let i = 0, p = 0; i < hw; i++, p += 4) {
+    //         data[i] = imgData[p] / 255;
+    //         data[i + hw] = imgData[p + 1] / 255;
+    //         data[i + hw * 2] = imgData[p + 2] / 255;
+    //     }
 
-        const inputTensor = new ort.Tensor(
-            'float32',
-            data,
-            [1, 3, MODEL_SIZE, MODEL_SIZE]
-        );
+    //     const inputTensor = new ort.Tensor(
+    //         'float32',
+    //         data,
+    //         [1, 3, MODEL_SIZE, MODEL_SIZE]
+    //     );
 
-        // ===============================
-        // 🔹 INFERENCIA
-        // ===============================
-        console.log('⚙️ Ejecutando inferencia...');
-        const output = await this.sessionBRIA!.run({ input: inputTensor });
+    //     // ===============================
+    //     // 🔹 INFERENCIA
+    //     // ===============================
+    //     console.log('⚙️ Ejecutando inferencia...');
+    //     const output = await this.sessionBRIA!.run({ input: inputTensor });
 
-        const outputKey = Object.keys(output)[0];
-        const maskData = output[outputKey].data as Float32Array;
+    //     const outputKey = Object.keys(output)[0];
+    //     const maskData = output[outputKey].data as Float32Array;
 
-        // ===============================
-        // 🔹 CONSTRUIR MÁSCARA
-        // ===============================
-        const maskImg = new Jimp(MODEL_SIZE, MODEL_SIZE);
+    //     // ===============================
+    //     // 🔹 CONSTRUIR MÁSCARA
+    //     // ===============================
+    //     const maskImg = new Jimp(MODEL_SIZE, MODEL_SIZE);
 
-        for (let i = 0, p = 0; i < hw; i++, p += 4) {
-            const m = Math.pow(maskData[i], 2.2);
-            const v = Math.min(Math.max(m * 255, 0), 255);
-            maskImg.bitmap.data[p] =
-                maskImg.bitmap.data[p + 1] =
-                maskImg.bitmap.data[p + 2] = v;
-            maskImg.bitmap.data[p + 3] = 255;
-        }
+    //     for (let i = 0, p = 0; i < hw; i++, p += 4) {
+    //         const m = Math.pow(maskData[i], 2.2);
+    //         const v = Math.min(Math.max(m * 255, 0), 255);
+    //         maskImg.bitmap.data[p] =
+    //             maskImg.bitmap.data[p + 1] =
+    //             maskImg.bitmap.data[p + 2] = v;
+    //         maskImg.bitmap.data[p + 3] = 255;
+    //     }
 
-        // ===============================
-        // 🔹 QUITAR PADDING + RESIZE
-        // ===============================
-        const croppedMask = maskImg
-            .crop(offsetX, offsetY, w, h)
-            .resize(origW, origH);
+    //     // ===============================
+    //     // 🔹 QUITAR PADDING + RESIZE
+    //     // ===============================
+    //     const croppedMask = maskImg
+    //         .crop(offsetX, offsetY, w, h)
+    //         .resize(origW, origH);
 
-        // ===============================
-        // 🔹 APLICAR ALPHA
-        // ===============================
-        const outputImg = image.clone();
-        const maskBuf = croppedMask.bitmap.data;
+    //     // ===============================
+    //     // 🔹 APLICAR ALPHA
+    //     // ===============================
+    //     const outputImg = image.clone();
+    //     const maskBuf = croppedMask.bitmap.data;
 
-        for (let y = 0; y < origH; y++) {
-            for (let x = 0; x < origW; x++) {
-                const idx = (y * origW + x) * 4;
-                outputImg.bitmap.data[idx + 3] = maskBuf[idx];
-            }
-        }
+    //     for (let y = 0; y < origH; y++) {
+    //         for (let x = 0; x < origW; x++) {
+    //             const idx = (y * origW + x) * 4;
+    //             outputImg.bitmap.data[idx + 3] = maskBuf[idx];
+    //         }
+    //     }
 
-        // ===============================
-        // 🔹 SALIDA FINAL
-        // ===============================
-        const result = await outputImg.getBufferAsync(Jimp.MIME_PNG);
+    //     // ===============================
+    //     // 🔹 SALIDA FINAL
+    //     // ===============================
+    //     const result = await outputImg.getBufferAsync(Jimp.MIME_PNG);
 
-        console.log('🏁 [BRIA] Procesamiento finalizado');
-        return result;
-    }
+    //     console.log('🏁 [BRIA] Procesamiento finalizado');
+    //     return result;
+    // }
 }
 
 
